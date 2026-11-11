@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 157 28" fill="none" stroke="#E8E9EC" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="12" role="img" aria-label="Pioneer">
+  <!-- Waypoint: the O is the Acadine mark, a ring opened on one bearing with the cyan waypoint already outside it. -->
+  <path d="M2 26V2h8a7 7 0 0 1 0 14H2"/>
+  <path d="M25 2v24"/>
+  <path d="M56.4 8A12 12 0 1 1 52 3.6"/>
+  <path d="M58.2 0 61.4 3.2 58.2 6.4 55 3.2z" fill="#58E6FF" stroke="none"/>
+  <path d="M67 26V2l18 24V2"/>
+  <path d="M108 2H94v24h14M94 14h11"/>
+  <path d="M131 2h-14v24h14M117 14h11"/>
+  <path d="M141 26V2h8a7 7 0 0 1 0 14h-8M148 16l8 10"/>
+</svg>

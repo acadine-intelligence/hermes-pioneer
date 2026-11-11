@@ -1,0 +1,38 @@
+name: pioneer
+version: "0.4.0"
+description: "An inverted search for your own work. Pioneer reads your project folder, Hermes memory and recent chats, then looks for what does not exist yet and should. Your own model writes the gaps; code checks every citation, runs an absence check against existing tools, and scores need, originality, counterfactual value, value and durability. When an existing tool already does the job, the verdict says use that. Free sources by default (Hacker News, GitHub, OpenAlex, your own Hermes install); Firecrawl and a second judge are optional."
+author: Acadine Intelligence
+license: MIT
+homepage: https://github.com/acadine-intelligence/hermes-pioneer
+kind: standalone
+requires_hermes: ">=0.23.0"
+platforms:
+  - linux
+  - macos
+provides_tools:
+  - pioneer_seed
+  - pioneer_scout
+  - pioneer_submit
+  - pioneer_absence
+  - pioneer_board
+  - pioneer_setup
+config_schema:
+  source_hn: {type: bool, default: true, description: "Search Hacker News (hn.algolia.com) for need"}
+  source_github: {type: bool, default: true, description: "Search GitHub (api.github.com) for existing repos and refused requests"}
+  source_openalex: {type: bool, default: true, description: "Search OpenAlex (api.openalex.org) for published methods"}
+  source_local: {type: bool, default: true, description: "Check your installed skills, plugins, MCP servers and the plugin catalog. No network."}
+  source_firecrawl: {type: bool, default: false, description: "Search the open web through Firecrawl (api.firecrawl.dev). Needs FIRECRAWL_API_KEY."}
+  judge: {type: str, default: "off", description: "off, llm or jev. A second judge on the absence check. jev sends gap and candidate descriptions to the TypeSafe API. llm asks your own Hermes model."}
+  seed_workspace: {type: bool, default: true, description: "Read the project folder (README, agent rules, manifests, commit subjects) into the seed"}
+  seed_memory: {type: bool, default: true, description: "Read Hermes memory into the seed"}
+  seed_sessions: {type: bool, default: true, description: "Read the title and first ask of recent chats into the seed"}
+optional_env:
+  - name: GITHUB_TOKEN
+    description: "Optional. Raises the GitHub search limit from 10 to 30 a minute. No scopes needed."
+    password: true
+  - name: FIRECRAWL_API_KEY
+    description: "Only for the optional Firecrawl source (source_firecrawl)."
+    password: true
+  - name: TYPESAFE_API_KEY
+    description: "Only for the optional Jev judge (judge: jev)."
+    password: true
