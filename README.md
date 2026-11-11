@@ -6,6 +6,10 @@ It reads your project folder, your Hermes memory and your recent chats. Your own
 
 Pioneer is not a tool recommender. When an existing tool already does the job, the verdict says "use that" and the gap is closed. That answer is a result.
 
+![The Pioneer page: rounds, ranked gaps, and the evidence and absence check for one gap](docs/page.png)
+
+The Pioneer page in Hermes Desktop, on a real round run for a fictional project. The picture was taken in a browser harness outside the app.
+
 ## What a round looks like
 
 1. `pioneer_seed` builds a seed from your workspace, memory and chats. Local, read-only, redacted.
