@@ -32,7 +32,8 @@ OPTIONS: list[dict[str, Any]] = [
      "title": "Second judge on the absence check",
      "adds": "An independent probability that each existing tool already does the job. It can only lower originality.",
      "sends": "jev: the gap and candidate descriptions to api.typesafe.ai. llm: the same to your own Hermes model.",
-     "needs": None, "cost": "jev: a fraction of a cent a gap, needs TYPESAFE_API_KEY. llm: your own tokens."},
+     "needs": None, "state_needs": {"jev": "TYPESAFE_API_KEY"},
+     "cost": "jev: a fraction of a cent a gap, needs TYPESAFE_API_KEY. llm: your own tokens."},
     {"id": "workspace", "group": "seed", "setting": "seed_workspace", "default": True, "title": "Read the project folder",
      "adds": "README, agent rules, manifests, top-level names and the last 15 commit subjects.",
      "sends": "nothing; shown to your own model only", "needs": None, "cost": "free"},
@@ -109,9 +110,10 @@ def report(get: Callable[[str, Any], Any], inventory: dict) -> dict[str, Any]:
     rows = []
     for o in OPTIONS:
         state = value(get, o)
-        ready = not o["needs"] or bool(keys.get(o["needs"]))
+        needs = o["needs"] or o.get("state_needs", {}).get(state)  # a choice can need a key the option itself does not
+        ready = not needs or bool(keys.get(needs))
         rows.append({"id": o["id"], "group": o["group"], "title": o["title"], "state": state if "choices" in o else ("on" if state else "off"),
-                     "ready": ready, "adds": o["adds"], "sends": o["sends"], "needs": o["needs"], "cost": o["cost"]})
+                     "ready": ready, "adds": o["adds"], "sends": o["sends"], "needs": needs, "cost": o["cost"]})
     state = {r["id"]: r["state"] for r in rows}
     recs: list[dict[str, str]] = []
     if keys.get("FIRECRAWL_API_KEY") and state["firecrawl"] == "off":
@@ -127,6 +129,10 @@ def report(get: Callable[[str, Any], Any], inventory: dict) -> dict[str, Any]:
             recs.append({"do": "Turn on the second judge with your own model", "why": "The model that invents a gap also rules on "
                          "its rivals. A fresh-context second look can only lower originality. It spends your own tokens.",
                          "how": "/pioneer judge llm"})
+    elif state["judge"] == "jev" and not keys.get("TYPESAFE_API_KEY"):
+        recs.insert(0, {"do": "Add a TypeSafe key or switch the judge", "why": "The judge is set to jev but no TypeSafe key "
+                        "is set, so every round runs without a second judge.", "how": "add TYPESAFE_API_KEY to the Hermes .env "
+                        "file, or /pioneer judge llm"})
     if state["github"] == "on" and not keys.get("GITHUB_TOKEN"):
         recs.append({"do": "Add a GitHub token", "why": "Without one GitHub allows 10 searches a minute, and a busy round "
                      "drops queries. A token with no scopes is enough.", "how": "add GITHUB_TOKEN to the Hermes .env file (hermes config env-path prints where it is)"})

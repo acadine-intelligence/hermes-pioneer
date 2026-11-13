@@ -421,6 +421,18 @@ def test_setup_report_recommends_from_what_is_installed():
     assert any("Jev" in r["do"] for r in with_jev["recommended"])
 
 
+def test_setup_flags_jev_judge_without_key():
+    get = lambda k, d=None: "jev" if k == "judge" else d
+    rep = options.report(get, INVENTORY)
+    judge = next(o for o in rep["options"] if o["id"] == "judge")
+    assert judge["ready"] is False and judge["needs"] == "TYPESAFE_API_KEY"
+    assert rep["recommended"][0]["do"] == "Add a TypeSafe key or switch the judge"
+    assert "jev (needs TYPESAFE_API_KEY)" in render.setup(rep)
+    keyed = options.report(get, {**INVENTORY, "keys": {"TYPESAFE_API_KEY": True}})
+    assert next(o for o in keyed["options"] if o["id"] == "judge")["ready"] is True
+    assert not any("TypeSafe key or switch" in r["do"] for r in keyed["recommended"])
+
+
 # ---- adapter -------------------------------------------------------------------------------------
 
 class FakeCtx:
