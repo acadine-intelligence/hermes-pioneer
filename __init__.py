@@ -110,13 +110,15 @@ SCHEMAS = {
             "turned on (Hacker News, GitHub repos and refused requests, OpenAlex papers, this Hermes install; "
             "Firecrawl when on). Queries leave this machine: 2 to 5 plain public words each, never names, "
             "companies, paths or private facts. Pass results from your other tools (web search, Reddit, X, "
-            "papers) as `signals` so they can be cited. Returns ledger lines with ids."),
+            "papers) as `signals` so they can be cited. For own tooling, pass `incident` signals: something that "
+            "went wrong or was done by hand in the user's own work, linked to a log or note (file:// is allowed for "
+            "incidents and must exist). Returns ledger lines with ids."),
         "parameters": {"type": "object", "properties": {
             "run": {"type": "string", "description": "Round id like r1; default is the latest round"},
             "queries": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
             "signals": {"type": "array", "maxItems": 30, "items": {"type": "object", "properties": {
                 "title": {"type": "string"}, "url": {"type": "string"}, "text": {"type": "string"},
-                "kind": {"type": "string", "enum": ["need", "talk", "refusal", "capability", "supply", "dead", "web"]},
+                "kind": {"type": "string", "enum": ["need", "talk", "refusal", "capability", "supply", "dead", "web", "incident"]},
                 "source": {"type": "string", "description": "Tool it came from, like web_search"},
                 "engagement": {"type": "integer"}, "date": {"type": "string"},
             }, "required": ["title", "url"]}},
@@ -128,7 +130,8 @@ SCHEMAS = {
             "Submit the gaps you wrote from the ledger. Code checks every cited Signal id, drops gaps with no "
             "valid evidence, scores and ranks. You rate need, value, counterfactual, durability and fit from "
             "1 to 5. You do not rate originality: only the absence check measures it. Pass an existing gap `id` "
-            "to revise that gap."),
+            "to revise that gap. Set `audience` to own when the gap is a tool, script or workflow for the "
+            "user's own work: it is then judged on need, value and fit, and can earn the verdict build."),
         "parameters": {"type": "object", "properties": {
             "run": {"type": "string", "description": "Round id; default is the latest round"},
             "gaps": {"type": "array", "minItems": 1, "maxItems": 12, "items": {"type": "object", "properties": {
@@ -138,6 +141,8 @@ SCHEMAS = {
                 "buyer": {"type": "string", "description": "Who it is for"},
                 "mechanism": {"type": "string", "description": "What is new in how it does it"},
                 "kind": {"type": "string", "enum": ["tool", "product", "service", "workflow", "dataset"]},
+                "audience": {"type": "string", "enum": ["market", "own"],
+                             "description": "market (default): a product for others. own: tooling for this user's own work"},
                 "evidence": {"type": "array", "items": {"type": "string"}, "description": "Signal ids like S12"},
                 "ratings": {"type": "object", "properties": {
                     "need": _RATING, "value": _RATING, "counterfactual": _RATING, "durability": _RATING, "fit": _RATING,

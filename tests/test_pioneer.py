@@ -378,6 +378,95 @@ def test_judge_questions_address_rows_by_id():
     assert [c["_row_id"] for c in judge.state_for({"title": "t"}, cands)["candidates"]] == ["C1", "C2"]
 
 
+# ---- own tooling ---------------------------------------------------------------------------------
+
+def incidents(svc, run, tmp_path, n=3):
+    sigs = []
+    for i in range(n):
+        f = tmp_path / f"incident{i}.log"
+        f.write_text("job failed with exit 1 on every tick")
+        sigs.append({"title": f"Our cron job {i} failed silently", "url": f.as_uri(), "kind": "incident",
+                     "text": "found a day later", "source": "terminal"})
+    out = svc.scout(run, [], signals=sigs)
+    return [s["id"] for s in out["ledger"] if s["kind"] == "incident"]
+
+
+def own_round(svc, project, tmp_path, *, audience="own", n=3, **over):
+    run = svc.seed(str(project))["run"]
+    svc.scout(run, ["cron job failure"])
+    ids = incidents(svc, run, tmp_path, n)
+    svc.submit(run, [gap(ids, audience=audience, **over)])
+    return run, ids
+
+
+def test_own_gap_builds_on_incidents_even_with_a_partial_rival(home, project, tmp_path):
+    svc = make(home, tmp_path / "d")
+    run, ids = own_round(svc, project, tmp_path)
+    assert len(ids) == 3
+    r = checked(svc, run, {"acme/cronwatch": "partial"})["result"]
+    assert r["verdict"] == "build" and r["audience"] == "own" and "acme/cronwatch" in r["line"]
+    assert r["need"] == 75  # three verified incidents: no damping
+    expected = (75 * 35 + 75 * 25 + r["counterfactual"] * 20 + 75 * 15 + 75 * 5) / 100
+    assert r["pioneer"] == round(expected) and r["originality"] is not None  # shown, not weighted
+
+
+def test_incidents_are_not_market_demand(home, project, tmp_path):
+    svc = make(home, tmp_path / "d")
+    run, _ = own_round(svc, project, tmp_path, audience="market")
+    r = checked(svc, run, {})["result"]
+    assert r["audience"] == "market" and r["need"] == 30 and r["verdict"] == "park"
+
+
+def test_own_gap_without_evidence_of_need_parks(home, project, tmp_path):
+    svc = make(home, tmp_path / "d")
+    ratings = {d: {"n": 4} for d in score.RATED}
+    ratings["need"] = {"n": 2}
+    run, _ = own_round(svc, project, tmp_path, ratings=ratings)
+    r = checked(svc, run, {})["result"]
+    assert r["verdict"] == "park" and "incidents" in r["line"]
+
+
+def test_own_gap_still_adopts_an_existing_tool(home, project, tmp_path):
+    svc = make(home, tmp_path / "d")
+    run, _ = own_round(svc, project, tmp_path)
+    assert checked(svc, run, {"acme/cronwatch": "solves"})["result"]["verdict"] == "adopt"
+
+
+def test_own_gap_with_weak_fit_iterates_on_fit(home, project, tmp_path):
+    svc = make(home, tmp_path / "d")
+    ratings = {d: {"n": 4} for d in score.RATED}
+    ratings["fit"] = {"n": 2}
+    run, _ = own_round(svc, project, tmp_path, ratings=ratings)
+    r = checked(svc, run, {})["result"]
+    assert r["verdict"] == "iterate" and "fit" in r["line"]
+
+
+def test_incident_links_must_exist_and_web_incidents_stay_unverified(home, project, tmp_path):
+    svc = make(home, tmp_path / "d")
+    run = svc.seed(str(project))["run"]
+    out = svc.scout(run, [], signals=[
+        {"title": "Missing log", "url": (tmp_path / "nope.log").as_uri(), "kind": "incident"},
+        {"title": "Not an incident", "url": (tmp_path / "x.log").as_uri(), "kind": "need"},
+        {"title": "Postmortem page", "url": "https://example.test/pm", "kind": "incident"}])
+    assert len(out["refused"]) == 2 and out["new_signals"] == 1
+    sig = svc.trail.load(run)["signals"][-1]
+    assert sig["kind"] == "incident" and not sig.get("verified")
+    svc.submit(run, [gap([sig["id"]], audience="own")])
+    _, g = svc.trail.find_gap(f"{run}.g1")
+    assert g["scores"]["need"] == round(75 * 0.6 * 0.85)  # one demand Signal, agent-supplied and unchecked
+
+
+def test_board_marks_own_gaps_and_build(home, project, tmp_path):
+    svc = make(home, tmp_path / "d")
+    run, _ = own_round(svc, project, tmp_path)
+    checked(svc, run, {})
+    b = svc.board(run)
+    text = render.board(b)
+    assert "[own]" in text and "BUILD" in text and "fit 15" in text
+    html = render_html.board(b)
+    assert ">build<" in html and 'class="build"' in html
+
+
 # ---- trail ---------------------------------------------------------------------------------------
 
 def test_expand_opens_a_child_round_that_carries_the_parent(home, project, tmp_path):

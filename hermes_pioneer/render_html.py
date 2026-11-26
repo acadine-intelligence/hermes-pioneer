@@ -35,7 +35,7 @@ ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px
 li{border:1px solid var(--line);border-radius:11px;background:var(--surf);padding:10px 12px;
 transition:border-color .15s ease,transform .15s ease}
 li:hover{border-color:var(--acc);transform:translateX(2px)}
-li.pioneer{border-color:var(--acc)}
+li.pioneer,li.build{border-color:var(--acc)}
 .hd{display:flex;align-items:baseline;gap:8px}
 .n{color:var(--mut);font-variant-numeric:tabular-nums;flex:none}
 .t{flex:1;min-width:0;font-weight:600}
@@ -61,7 +61,7 @@ button.go{background:var(--acc);border-color:var(--acc);color:#0b0b0f}
 .foot{color:var(--mut);font-size:11px;margin-top:10px}
 """
 
-_CHIP = {"pioneer": "pioneer", "iterate": "iterate", "beat": "beat it", "unchecked": "not checked",
+_CHIP = {"pioneer": "pioneer", "build": "build", "iterate": "iterate", "beat": "beat it", "unchecked": "not checked",
          "park": "park", "adopt": "use existing"}
 _BARS = (("need", "Need"), ("originality", "Original"), ("counterfactual", "Counterfactual"),
          ("value", "Value"), ("durability", "Durable"))
@@ -87,7 +87,7 @@ def _chart(gaps: list[dict], win: dict) -> str:
         if g.get("originality") is None:
             continue
         cx, cy = x(g["originality"]), y(g["need"])
-        dim = "" if g["verdict"] in ("pioneer", "iterate", "beat") else " dim"
+        dim = "" if g["verdict"] in ("pioneer", "build", "iterate", "beat") else " dim"
         parts.append(f'<circle class="dot{dim}" cx="{cx:.1f}" cy="{cy:.1f}" r="8" style="animation-delay:{i * 60}ms"/>'
                      f'<text class="num" x="{cx:.1f}" y="{cy + 3:.1f}" text-anchor="middle">{i}</text>')
     parts.append("</svg>")
@@ -101,7 +101,7 @@ def _buttons(g: dict) -> str:
     out = []
     if g["verdict"] == "unchecked":
         out.append(f'<button class="go" data-hermes-send="Run the Pioneer absence check on gap {gid}.">Check it exists</button>')
-    if g["verdict"] in ("pioneer", "iterate", "beat"):
+    if g["verdict"] in ("pioneer", "build", "iterate", "beat"):
         out.append(f'<button class="go" data-hermes-send="Expand Pioneer gap {gid} into a new round.">Expand</button>')
     out.append(f'<button data-hermes-send="Show the evidence and the absence check for Pioneer gap {gid}.">Evidence</button>')
     return "".join(out)
@@ -119,7 +119,7 @@ def board(b: dict) -> str:
         near = g.get("nearest") or {}
         nearest = f' · nearest: {escape(str(near.get("name", ""))[:60])}' if near.get("name") else ""
         thin = " · thin search" if g.get("thin_check") else ""
-        hot = " hot" if g["verdict"] == "pioneer" else ""
+        hot = " hot" if g["verdict"] in ("pioneer", "build") else ""
         items.append(
             f'<li class="{escape(g["verdict"])}"><div class="hd"><span class="n">{i}</span>'
             f'<span class="t">{escape(g["title"])}</span><span class="chip{hot}">{_CHIP.get(g["verdict"], escape(g["verdict"]))}</span>'
