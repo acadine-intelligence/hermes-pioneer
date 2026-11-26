@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-BADGE = {"pioneer": "PIONEER", "iterate": "iterate", "beat": "beat", "unchecked": "unchecked",
+BADGE = {"pioneer": "PIONEER", "build": "BUILD", "iterate": "iterate", "beat": "beat", "unchecked": "unchecked",
          "park": "park", "adopt": "use existing"}
 
 
@@ -25,7 +25,8 @@ def board(b: dict) -> str:
     head = ["#", "Gap", "Verdict", "Score", "Need", "Orig", "Cfact", "Value", "Dur"] + (["Judge"] if judged else [])
     lines = ["| " + " | ".join(head) + " |", "|" + "|".join(["---"] * len(head)) + "|"]
     for i, g in enumerate(gaps, 1):
-        row = [str(i), f"{_cell(g['title'])} ({g['id']})", BADGE.get(g["verdict"], g["verdict"]),
+        own = " [own]" if g.get("audience") == "own" else ""
+        row = [str(i), f"{_cell(g['title'])} ({g['id']}){own}", BADGE.get(g["verdict"], g["verdict"]),
                _n(g["pioneer"]), _n(g["need"]), _n(g["originality"]), _n(g["counterfactual"]),
                _n(g["value"]), _n(g["durability"])]
         if judged:
@@ -40,6 +41,9 @@ def board(b: dict) -> str:
     out = [f"Pioneer board, {where}: {count}", "", *lines, "", *notes, "",
            "Score = need 30, originality 25, counterfactual 20, value 15, durability 10. "
            "Originality comes from the absence check only. \"-\" means not measured yet."]
+    if any(g.get("audience") == "own" for g in gaps):
+        out.append("[own] = tooling for our own work: score = need 35, value 25, counterfactual 20, fit 15, "
+                   "durability 5. Originality is shown but not weighted; build needs need 55, value 50, fit 50.")
     if judged:
         out.append(f"Judge ({b['judge']}) = highest probability that an existing tool already does the job.")
     if b["errors"]:

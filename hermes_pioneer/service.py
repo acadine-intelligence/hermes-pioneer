@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable
 
@@ -15,7 +16,7 @@ from . import judge as judge_mod
 from . import options, score, seed as seed_mod, sources
 from .store import Trail
 
-KINDS = ("need", "talk", "refusal", "capability", "supply", "dead", "web")
+KINDS = ("need", "talk", "refusal", "capability", "supply", "dead", "web", "incident")
 GAP_KINDS = ("tool", "product", "service", "workflow", "dataset")
 MAX_QUERIES = 10
 MAX_LEDGER_RETURN = 80
@@ -42,7 +43,10 @@ INVENT_CONTRACT = (
     "  counterfactual: 5 = work that cannot happen today becomes possible; 1 = the same result, slightly sooner.\n"
     "  durability: 5 = no substitute likely within two years; 1 = a platform ships it within months. Low is allowed.\n"
     "  fit: 5 = on this person's path and buildable with what they have; 1 = a stray.\n"
-    "Rate honestly. A crowded field is not a gap. Do not rate originality: the absence check measures it.")
+    "Rate honestly. A crowded field is not a gap. Do not rate originality: the absence check measures it.\n"
+    "Set `audience: \"own\"` when the gap is a tool, script or workflow for this person's own work rather than a "
+    "product for others. Own gaps are judged on need, value and fit, not originality, and `incident` Signals "
+    "(what went wrong or was done by hand in their own work) count as demand for them.")
 
 ABSENCE_CONTRACT = (
     "Rule on every candidate, then call pioneer_absence again with `rulings`.\n"
@@ -61,6 +65,8 @@ NEXT = {
     "iterate": "Open a child round on the weakest axis with pioneer_seed(expand=<gap id>), or gather more "
                "evidence with pioneer_scout and resubmit.",
     "pioneer": "Show the board. Offer to expand one level deeper or to turn the gap into a plan.",
+    "build": "This is for the user's own use. Show the board and offer to build it, or to extend the nearest tool "
+             "named in the line. Building it is the user's decision.",
     "unchecked": "Run pioneer_absence on it.",
 }
 
@@ -170,12 +176,21 @@ class Pioneer:
             if not isinstance(raw, dict):
                 continue
             url = str(raw.get("url") or "")
-            if not url.startswith(("https://", "http://")) or not raw.get("title"):
-                refused.append("a supplied signal without a title or an http link")
-                continue
             kind = str(raw.get("kind")) if raw.get("kind") in KINDS else "talk"
-            found.append(sources._sig("agent:" + _text(raw.get("source") or "tool", 24), kind, raw.get("title"), url,
-                                      raw.get("text"), raw.get("date"), raw.get("engagement")))
+            local = kind == "incident" and url.startswith("file://")
+            if not (url.startswith(("https://", "http://")) or local) or not raw.get("title"):
+                refused.append("a supplied signal without a title or an http link (incidents may use file://)")
+                continue
+            sig = sources._sig("agent:" + _text(raw.get("source") or "tool", 24), kind, raw.get("title"), url,
+                               raw.get("text"), raw.get("date"), raw.get("engagement"))
+            if local:
+                # An incident counts as checked only when the file it points at exists on this machine.
+                path = Path(urllib.parse.unquote(url[len("file://"):])).expanduser()
+                if not path.is_file():
+                    refused.append(f"incident '{_text(raw.get('title'), 40)}': no file at its file:// link")
+                    continue
+                sig["verified"] = True
+            found.append(sig)
         seen = {(s["source"], s["url"] or s["title"]) for s in run["signals"]}
         fresh: list[dict] = []
         for sig in found:
@@ -265,6 +280,7 @@ class Pioneer:
                 "title": title, "one_line": _text(raw.get("one_line"), 300), "buyer": _text(raw.get("buyer"), 160),
                 "mechanism": _text(raw.get("mechanism"), 300),
                 "kind": raw.get("kind") if raw.get("kind") in GAP_KINDS else "tool",
+                "audience": raw.get("audience") if raw.get("audience") in score.AUDIENCES else "market",
                 "evidence": valid, "unknown_evidence": unknown, "ratings": ratings,
             })
             score.score_gap(gap, ledger)
@@ -289,7 +305,8 @@ class Pioneer:
                 "pioneer": s["pioneer"], "provisional": s["provisional"], "need": s["need"],
                 "originality": s["originality"], "counterfactual": s["counterfactual"], "value": s["value"],
                 "durability": s["durability"], "fit": s["fit"], "judge_exists": s.get("judge_exists"),
-                "evidence": len(gap["evidence"]), "sources": s["sources"]}
+                "evidence": len(gap["evidence"]), "sources": s["sources"],
+                "audience": gap.get("audience", "market")}
 
     # ---- 4. absence ------------------------------------------------------------------------------
 
@@ -402,6 +419,7 @@ class Pioneer:
                      for g in ranked],
             "errors": sorted({e for r in runs for e in (r.get("errors") or [])}),
             "judge": self._settings()["judge"], "weights": score.WEIGHTS, "win_zone": score.WIN,
+            "own_weights": score.OWN_WEIGHTS, "build_zone": score.BUILD,
         }
 
     # ---- names and progress -------------------------------------------------------------------

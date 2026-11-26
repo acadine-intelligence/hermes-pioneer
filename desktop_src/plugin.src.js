@@ -68,10 +68,10 @@ const GLASS_CSS = `
 @media (prefers-reduced-motion:reduce){.pnr-art,.pnr-orbit,.pnr-dot{animation:none}.pnr-btn{transition:none}.pnr-btn:hover{transform:none}}
 `
 const VERDICT = {
-  pioneer: 'pioneer', iterate: 'iterate', beat: 'beat it', unchecked: 'not checked', park: 'park', adopt: 'use existing'
+  pioneer: 'pioneer', build: 'build', iterate: 'iterate', beat: 'beat it', unchecked: 'not checked', park: 'park', adopt: 'use existing'
 }
 const BARS = [['need', 'Need'], ['originality', 'Original'], ['counterfactual', 'Counter'], ['value', 'Value'], ['durability', 'Durable']]
-const LIVE = { pioneer: 1, iterate: 1, beat: 1 }
+const LIVE = { pioneer: 1, build: 1, iterate: 1, beat: 1 }
 const SAFE_GAP = /^r\d{1,6}\.g\d{1,4}$/
 
 // ---- data ----------------------------------------------------------------------------------------
@@ -316,8 +316,8 @@ function Detail({ id }) {
 function GapCard({ g, n, open, onToggle, compact }) {
   const safe = SAFE_GAP.test(g.id)
   return el('div', {
-    id: `pioneer-gap-${g.id}`, className: 'pnr-card', 'data-hot': g.verdict === 'pioneer' ? '' : undefined,
-    style: { border: `1px solid ${g.verdict === 'pioneer' ? C.acc : C.line}`, borderRadius: 10, padding: compact ? 10 : 12 }
+    id: `pioneer-gap-${g.id}`, className: 'pnr-card', 'data-hot': g.verdict === 'pioneer' || g.verdict === 'build' ? '' : undefined,
+    style: { border: `1px solid ${g.verdict === 'pioneer' || g.verdict === 'build' ? C.acc : C.line}`, borderRadius: 10, padding: compact ? 10 : 12 }
   },
     el('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8 } },
       el('span', { style: { flex: 'none', color: C.ter, fontSize: 12, fontVariantNumeric: 'tabular-nums' } }, String(n)),

@@ -12,13 +12,15 @@ Pioneer is an inverted search. A normal search finds what exists. Pioneer finds 
 
 Pioneer is not a tool recommender. When an existing tool already does the job, say so and stop pitching the gap. That honest answer is a result.
 
+A gap does not have to be a product. When the user wants a tool, script or workflow for their own work, mark the gap `audience: "own"`. Own gaps are judged on need, value and fit. Originality is shown but carries no weight, so a crowded field does not park a tool we need.
+
 You write the queries, the gaps and the rulings. The plugin fetches, checks your citations, scores and decides the verdict. You cannot set a score.
 
 ## Steps
 
 1. Call `pioneer_seed`. Pass `steer` when the user named a direction, and a `title` of 3 to 7 plain words that names this round. Refer to rounds and gaps by their titles when you talk to the user; ids are for tool calls. Read the seed: the project, the user's goals, what they keep doing by hand, and what they already have.
 2. Name 3 to 6 frictions. Write 6 to 10 search queries a stranger with the same problem would type, 2 to 5 plain words each. Queries leave the machine. Put no name, company, path, amount or private fact in one.
-3. Call `pioneer_scout` with the queries. If you have web search, Reddit, X or paper tools, run them on the same frictions and pass the results as `signals`.
+3. Call `pioneer_scout` with the queries. If you have web search, Reddit, X or paper tools, run them on the same frictions and pass the results as `signals`. For own tooling, also pass `incident` signals: each thing that went wrong or was done by hand in the user's own work, linked to the log, note or commit that shows it (`file://` links must exist on this machine).
 4. Read the whole ledger. Write 4 to 8 gaps. Each gap names who it is for, what it does and what is new in how it does it. Cite Signal ids. Rate need, value, counterfactual, durability and fit from 1 to 5. Call `pioneer_submit`.
 5. For the top three gaps, call `pioneer_absence` with 3 to 6 queries: the words someone would use to find this product if it existed. Then web-search the same words yourself when you can.
 6. Rule on every candidate (solves, partial, unrelated). Add every rival you found or already know under `found`. Call `pioneer_absence` again with the rulings.
@@ -28,6 +30,7 @@ You write the queries, the gaps and the rulings. The plugin fetches, checks your
 ## Verdicts
 
 - pioneer: nothing found that does it, and people need it. Worth building.
+- build (own gaps only): we need it and nothing we can install does the whole job. Build it for our own use, or extend the partial tool the line names.
 - iterate: one measure is weak. The verdict names it. Expand the gap or gather evidence for that measure.
 - beat: an existing tool covers part of it. The gap is the difference. Narrow the gap to that difference.
 - adopt: an existing tool does it. Tell the user to use that tool.
@@ -37,6 +40,8 @@ You write the queries, the gaps and the rulings. The plugin fetches, checks your
 ## Rules
 
 - Rate honestly. A crowded field is not a gap. An inferred need is a 1 or a 2.
+- Own gaps: need comes from incidents you can cite, never from how useful the tool sounds. Market demand and our incidents are different evidence; an incident never counts as market demand.
+- Decide the audience from the user's words. "Should we build this for us" is own; "is there a business in this" is market. When both matter, submit the gap twice, once per audience.
 - "Nothing exists" is a claim. Search for the product before you rule. Name every rival you know.
 - A score shown as "-" or "?" is unmeasured. Never read it as zero, and never fill it in yourself.
 - Need is measured again in every child round. It is not inherited from the parent gap.

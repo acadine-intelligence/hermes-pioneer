@@ -9,6 +9,17 @@ Five measures, each 0 to 100:
   durability      how long before a substitute appears? The 1-5 rating. A short life is allowed; it is shown.
 
 ``fit`` (does it sit on your path) is a filter: it orders ties and flags strays. It is not in the score.
+
+Own tooling (``audience: "own"``): the user wants a tool, script or workflow for their own work, not a product for
+a market. Being original does not matter there; being needed does. So for own gaps:
+
+  * ``incident`` Signals (something that went wrong or was done by hand in the user's own work, backed by a local
+    file or a link) count as demand. For market gaps they do not: one shop's incident is not a market.
+  * The score is need 35, value 25, counterfactual 20, fit 15, durability 5. Originality is still measured and
+    shown, but carries no weight.
+  * The absence check still runs: when an existing tool solves it, the verdict is still adopt.
+  * ``build`` replaces ``pioneer``: need, value and fit clear BUILD. A partial rival does not block it; the line
+    says to build only the difference, or to extend the rival.
 """
 
 from __future__ import annotations
@@ -17,8 +28,12 @@ from typing import Any
 
 from .sources import DEMAND_KINDS
 
-VERSION = "pioneer-score@1"
+VERSION = "pioneer-score@2"
 WEIGHTS = {"need": 30, "originality": 25, "counterfactual": 20, "value": 15, "durability": 10}
+OWN_WEIGHTS = {"need": 35, "value": 25, "counterfactual": 20, "fit": 15, "durability": 5}
+BUILD = {"need": 55, "value": 50, "fit": 50}
+AUDIENCES = ("market", "own")
+OWN_DEMAND_KINDS = DEMAND_KINDS | {"incident"}
 RATED = ("need", "value", "counterfactual", "durability", "fit")
 RULINGS = {"solves": 1.0, "partial": 0.5, "unrelated": 0.0}
 WIN = {"originality": 70, "need": 70, "counterfactual": 50}
@@ -90,9 +105,12 @@ def absence_result(absence: dict | None) -> dict | None:
 def score_gap(gap: dict, ledger: dict[str, dict]) -> dict:
     """Recompute ``gap['scores']`` and ``gap['verdict']`` in place and return the gap."""
     r = {dim: rating((gap.get("ratings") or {}).get(dim)) or 1 for dim in RATED}
+    own = gap.get("audience") == "own"
+    weights = OWN_WEIGHTS if own else WEIGHTS
     cited = [ledger[i] for i in gap.get("evidence", []) if i in ledger]
-    demand = [s for s in cited if s.get("kind") in DEMAND_KINDS]
-    fetched = [s for s in demand if not str(s.get("source", "")).startswith("agent")]
+    demand = [s for s in cited if s.get("kind") in (OWN_DEMAND_KINDS if own else DEMAND_KINDS)]
+    # An incident backed by a local file the plugin found on disk is checked evidence, like a fetched Signal.
+    fetched = [s for s in demand if not str(s.get("source", "")).startswith("agent") or s.get("verified")]
     damp = (0.4, 0.6, 0.8)[len(demand)] if len(demand) < 3 else 1.0
     if demand and not fetched:
         damp *= 0.85  # every demand Signal was supplied by the agent; the plugin fetched none of it
@@ -100,15 +118,15 @@ def score_gap(gap: dict, ledger: dict[str, dict]) -> dict:
         "need": round(pct(r["need"]) * damp), "value": pct(r["value"]), "durability": pct(r["durability"]),
         "fit": pct(r["fit"]), "originality": None, "counterfactual": None, "pioneer": None,
         "demand_signals": len(demand), "sources": sorted({s.get("source", "") for s in cited}),
+        "audience": "own" if own else "market",
     }
-    provisional = (scores["need"] * WEIGHTS["need"] + scores["value"] * WEIGHTS["value"]
-                   + scores["durability"] * WEIGHTS["durability"])
-    scores["provisional"] = round(provisional / (WEIGHTS["need"] + WEIGHTS["value"] + WEIGHTS["durability"]))
+    early = [k for k in weights if k in ("need", "value", "durability", "fit")]
+    scores["provisional"] = round(sum(scores[k] * weights[k] for k in early) / sum(weights[k] for k in early))
     found = absence_result(gap.get("absence"))
     if found:
         scores["originality"] = found["originality"]
         scores["counterfactual"] = round(pct(r["counterfactual"]) * (1 - found["coverage"]))
-        scores["pioneer"] = round(sum(scores[k] * w for k, w in WEIGHTS.items()) / 100)
+        scores["pioneer"] = round(sum(scores[k] * w for k, w in weights.items()) / 100)
         scores["thin_check"] = found["thin"]
         judged = [prob(c.get("judge_p")) for c in gap["absence"].get("candidates", [])]
         judged = [p for p in judged if p is not None]
@@ -126,6 +144,8 @@ def verdict(scores: dict, found: dict | None) -> dict:
     if found["coverage"] >= 1.0:
         lead = "You already have" if near.get("installed") else "Use"
         return {"code": "adopt", "line": f"{lead} {name}. It does this. Not a gap.", "nearest": near}
+    if scores.get("audience") == "own":
+        return _own_verdict(scores, found, near, name)
     if scores["need"] < PARK_BELOW_NEED:
         return {"code": "park", "line": "Nothing shows people need it. Park it.", "nearest": near or None}
     if found["coverage"] >= 0.5:
@@ -140,7 +160,24 @@ def verdict(scores: dict, found: dict | None) -> dict:
     return {"code": "iterate", "line": f"Weakest: {weakest}. Next: {hint}.", "binding": weakest}
 
 
-ORDER = {"pioneer": 0, "iterate": 1, "beat": 2, "unchecked": 3, "park": 4, "adopt": 5}
+def _own_verdict(scores: dict, found: dict, near: dict, name: str) -> dict:
+    """Own tooling: build what we need and cannot install. Originality does not decide anything here."""
+    if scores["need"] < PARK_BELOW_NEED:
+        return {"code": "park", "line": "Nothing shows we need it: cite the incidents it would have prevented.",
+                "nearest": near or None}
+    if all(scores[k] >= floor for k, floor in BUILD.items()):
+        if found["coverage"] >= 0.5:
+            return {"code": "build", "line": f"Build it for our own use. {name} covers part: extend it, or build "
+                                             "only the difference.", "nearest": near}
+        return {"code": "build", "line": "Build it for our own use. Nothing found that does this."}
+    axes = {k: scores[k] - floor for k, floor in BUILD.items()}
+    weakest = min(axes, key=lambda k: axes[k])
+    hint = {"need": "cite the incidents it would have prevented", "value": "say what it saves us",
+            "fit": "say how it fits what we already run"}[weakest]
+    return {"code": "iterate", "line": f"Weakest: {weakest}. Next: {hint}.", "binding": weakest}
+
+
+ORDER = {"pioneer": 0, "build": 0, "iterate": 1, "beat": 2, "unchecked": 3, "park": 4, "adopt": 5}
 
 
 def rank(gaps: list[dict]) -> list[dict]:
